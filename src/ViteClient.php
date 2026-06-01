@@ -64,7 +64,10 @@ final class ViteClient implements HookProviderInterface
         if (!StaticEnvironment::isLocal() && !StaticEnvironment::isDevelopment()) {
             return false;
         }
-        $response = wp_remote_get(trailingslashit($this->getServerUrl()) . self::VITE_CLIENT);
+        $response = wp_remote_get(
+            trailingslashit($this->getServerUrl()) . self::VITE_CLIENT,
+            ['timeout' => 1],
+        );
         if (!is_array($response)) {
             return false;
         }
