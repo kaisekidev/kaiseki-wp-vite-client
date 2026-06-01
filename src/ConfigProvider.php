@@ -15,7 +15,7 @@ final class ConfigProvider
             'hook' => [
                 'provider' => [
                     ViteClient::class,
-                ]
+                ],
             ],
             'dependencies' => [
                 'aliases' => [],

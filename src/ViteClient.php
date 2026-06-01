@@ -4,27 +4,31 @@ declare(strict_types=1);
 
 namespace Kaiseki\WordPress\ViteClient;
 
-use Kaiseki\WordPress\Environment\Environment;
 use Kaiseki\WordPress\Environment\StaticEnvironment;
-use Kaiseki\WordPress\Hook\HookCallbackProviderInterface;
+use Kaiseki\WordPress\Hook\HookProviderInterface;
 
+use function add_action;
 use function Env\env;
 use function function_exists;
-use function in_array;
+use function get_current_screen;
+use function is_admin;
 use function is_array;
+use function is_numeric;
+use function is_string;
+use function trailingslashit;
+use function wp_remote_get;
 
-final class Vite implements HookCallbackProviderInterface
+final class ViteClient implements HookProviderInterface
 {
     private const VITE_CLIENT = '@vite/client';
 
     public function __construct(
         private readonly string $host = 'localhost',
         private readonly int $port = 5173,
-    )
-    {
+    ) {
     }
 
-    public function registerHookCallbacks(): void
+    public function addHooks(): void
     {
         add_action('wp_head', [$this, 'renderViteClientScript']);
         add_action('admin_head', [$this, 'renderViteClientScript']);
@@ -32,7 +36,7 @@ final class Vite implements HookCallbackProviderInterface
 
     public function renderViteClientScript(): void
     {
-        if (!self::isHot() || (is_admin() && !$this->isBlockEditor())) {
+        if (!$this->isHot() || (is_admin() && !$this->isBlockEditor())) {
             return;
         }
 
@@ -45,10 +49,13 @@ final class Vite implements HookCallbackProviderInterface
 
     public function getServerUrl(): string
     {
+        $host = env('VITE_HOST');
+        $port = env('VITE_PORT');
+
         return \Safe\sprintf(
             'http://%s:%s/',
-            env('VITE_HOST') ?: 'localhost',
-            env('VITE_PORT') ?: '5173',
+            is_string($host) && $host !== '' ? $host : $this->host,
+            is_numeric($port) ? $port : $this->port,
         );
     }
 
@@ -57,8 +64,13 @@ final class Vite implements HookCallbackProviderInterface
         if (!StaticEnvironment::isLocal() && !StaticEnvironment::isDevelopment()) {
             return false;
         }
-        $response = wp_remote_get(trailingslashit(self::getServerUrl()) . self::VITE_CLIENT);
-        return is_array($response) && $response['response']['code'] === 200;
+        $response = wp_remote_get(trailingslashit($this->getServerUrl()) . self::VITE_CLIENT);
+        if (!is_array($response)) {
+            return false;
+        }
+        $responseData = $response['response'] ?? null;
+
+        return is_array($responseData) && ($responseData['code'] ?? null) === 200;
     }
 
     private function isBlockEditor(): bool
